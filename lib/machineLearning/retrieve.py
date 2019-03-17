@@ -57,7 +57,7 @@ def get_videos(channel_name, CLIENT_SECRETS_FILE):
             for playlist_item in playlistitems_list_response["items"]:
                 title = playlist_item["snippet"]["title"]
                 video_id = playlist_item["snippet"]["resourceId"]["videoId"]
-                video_list.append((title, video_id))
+                video_list.append((title, video_id, 'https://img.youtube.com/vi/' + video_id + '/0.jpg'))
 
             playlistitems_list_request = youtube.playlistItems().list_next(
                 playlistitems_list_request, playlistitems_list_response)
@@ -67,13 +67,4 @@ def get_videos(channel_name, CLIENT_SECRETS_FILE):
 
 def get_comments(video_id, CLIENT_SECRETS_FILE):
     """Retrieve comments from a video specified by given ID"""
-
-def get_thumbnails(video_list):
-    """Retrieve thumbnails for the videos"""
-    base_url = 'https://img.youtube.com/vi/'
-    for video in video_list:
-        video_id = video[1]
-        thumbnail_url = base_url + video_id + '/0.jpg'
-        r = requests.get(thumbnail_url, allow_redirects=True)
-        open("./thumbnails/" + video_id + ".jpg", 'wb').write(r.content)
 
