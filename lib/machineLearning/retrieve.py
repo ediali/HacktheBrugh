@@ -1,4 +1,5 @@
 import httplib2
+import requests
 import sys
 from apiclient.discovery import build
 from oauth2client.client import flow_from_clientsecrets
@@ -61,4 +62,18 @@ def get_videos(channel_name, CLIENT_SECRETS_FILE):
             playlistitems_list_request = youtube.playlistItems().list_next(
                 playlistitems_list_request, playlistitems_list_response)
 
-    return video_list
+    return(video_list)
+
+
+def get_comments(video_id, CLIENT_SECRETS_FILE):
+    """Retrieve comments from a video specified by given ID"""
+
+def get_thumbnails(video_list):
+    """Retrieve thumbnails for the videos"""
+    base_url = 'https://img.youtube.com/vi/'
+    for video in video_list:
+        video_id = video[1]
+        thumbnail_url = base_url + video_id + '/0.jpg'
+        r = requests.get(thumbnail_url, allow_redirects=True)
+        open("./thumbnails/" + video_id + ".jpg", 'wb').write(r.content)
+
