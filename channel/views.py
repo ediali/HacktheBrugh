@@ -17,7 +17,7 @@ class HomeView(TemplateView):
 
     def get(self, request):
         form  = ChannelForm()
-        return render(request, 'channel/index.html', {'form' : form})
+        return render(request, 'channel/boot.html', {'form' : form})
 
     def post(self, request):
         form = ChannelForm(request.POST)
