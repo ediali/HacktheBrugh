@@ -8,41 +8,39 @@ from sklearn.feature_extraction.text import TfidfTransformer
 from sklearn.linear_model import SGDClassifier
 from sklearn.metrics import f1_score
 from sklearn.model_selection import train_test_split
-import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
+from math import pi
+import plotly.plotly as py
+import plotly.graph_objs as go
+import plotly
+import matplotlib
+matplotlib.use('TkAgg')
+import matplotlib.pyplot as plt
+from retrieverComments import get_comment_threads
 
-####################################################################
-
-
-def clean_text(df: object, text_field: object) -> object:
-    df[text_field] = df[text_field].str.lower()
-    df[text_field] = df[text_field].apply(lambda elem: re.sub(r"(@[A-Za-z0-9]+)|([^0-9A-Za-z \t])|"
-                                                              r""r"(\w+:\/\/\S+)|^rt|http.+?", "", elem))
-    return df
-
-
-def clean_sentence(sentence):
-    phrase = sentence.lower()
-    phrase = re.sub(r"(@[A-Za-z0-9]+)|([^0-9A-Za-z \t])|"r"(\w+:\/\/\S+)|^rt|http.+?", "", phrase)
-    return phrase
+plotly.tools.set_credentials_file(username='SamirFarhat', api_key='OEv9RN9Pj5WkWrTZw9yT')
 
 
 train = pd.read_csv('train.csv')
 
-test = pd.read_csv('test.csv')
+#clean text by removing characters
+def  clean_text(df, text_field):
+    df[text_field] = df[text_field].str.lower()
+    df[text_field] = df[text_field].apply(lambda elem: re.sub(r"(@[A-Za-z0-9]+)|([^0-9A-Za-z \t])|(\w+:\/\/\S+)|^rt|http.+?", "", elem))
+    return df
 
-test_clean = clean_text(test, "tweet")
+
 train_clean = clean_text(train, "tweet")
 
-train_majority = train_clean[train_clean.label == 0]
-train_minority = train_clean[train_clean.label == 1]
+#upsample, meaning you use the minority set multiple times
+train_majority = train_clean[train_clean.label==0]
+train_minority = train_clean[train_clean.label==1]
 
-train_minority_upsampled = resample(train_minority, replace=True, n_samples=len(train_majority), random_state=123)
+train_minority_upsampled = resample(train_minority, n_samples = len(train_majority), random_state = 123)
+
 train_upsampled = pd.concat([train_minority_upsampled, train_majority])
 train_upsampled['label'].value_counts()
-
-train_majority = train_clean[train_clean.label == 0]
-train_minority = train_clean[train_clean.label == 1]
 
 train_majority_downsampled = resample(train_majority, replace=True, n_samples=len(train_minority), random_state=123)
 train_downsampled = pd.concat([train_majority_downsampled, train_minority])
@@ -50,40 +48,59 @@ train_downsampled['label'].value_counts()
 
 train_all = pd.concat([train_upsampled, train_downsampled])
 train_all['label'].value_counts()
-############################################################
 
-pipeline_sgd = Pipeline([ ('vect', CountVectorizer()), ('tfidf',  TfidfTransformer()), ('nb', SGDClassifier(loss='log')), ])
+pipeline_sgd = Pipeline([('vect', CountVectorizer()), ('tfidf',  TfidfTransformer()), ('nb', SGDClassifier(loss = 'log'))])
 
-X_train, X_test, y_train, y_test = train_test_split(train_upsampled['tweet'], train_upsampled['label'], random_state=0)
-model = pipeline_sgd.fit(train_upsampled['tweet'], train_upsampled['label'])
-y_predict = model.predict(X_test)
-print(f1_score(y_test, y_predict))
+#X_train, X_test, y_train, y_test = train_test_split(train_upsampled['tweet'], train_upsampled['label'],random_state = 0)
 
-####################################################################
+model = pipeline_sgd.fit(train_all['tweet'], train_all['label'])
+
+########################################################
 
 
-def check_hateful():
-    comment = input("Enter a sentence: ")
-    clean_comment = clean_sentence(comment)
-    toPredict = []
-    toPredict.append(clean_comment)
-    y_predict = model.predict_proba(toPredict)
-    if y_predict[0][1] > .60:
-        print(y_predict[0][1])
-        return "Hateful"
+comments = get_comment_threads('x1KubHyawQY')
+
+clean_comments = clean_text(comments, 'comment')
 
 
-x = 0
-count_hateful = 0
-count_good = 0
+def check_hateful(comments):
+    x = 0
+    global x
+    count_very_offensive = 0
+    count_probably_offensive = 0
+    count_unclear = 0
+    count_benign = 0
 
-while x < 5:
-    if check_hateful() == "Hateful":
-        count_hateful += 1
-    else:
-        count_good += 1
-    x += 1
+    count_hateful = 0
+    count_good = 0
 
+    global count_hateful
+    global count_good
+    global count_very_offensive
+    global count_probably_offensive
+    global count_unclear
+    global count_benign
+
+    for index, row in clean_comments.iterrows():
+        toPredict = [row['comment']]
+        y_predict = model.predict_proba(toPredict)
+        print(y_predict)
+        if y_predict[0][1] > .90:
+            count_very_offensive += 1
+        elif y_predict[0][1] <= .90 and y_predict[0][1] > .65:
+            count_hateful += 1
+            count_probably_offensive += 1
+        elif y_predict[0][1] <= .65 and y_predict[0][1] > .40:
+            count_unclear += 1
+            count_good += 1
+        else:
+            count_benign += 1
+            count_good += 1
+        x += 1
+
+check_hateful(comments)
+
+print("[" + str(count_very_offensive) + ',' + str(count_probably_offensive) + ',' + str(count_unclear) + ',' + str(count_benign) + "]")
 # Data to plot
 labels = 'Hateful', 'Benign'
 sizes = [count_hateful, count_good]
@@ -98,3 +115,25 @@ plt.show()
 
 
 ####################################################################
+
+data = [
+    go.Scatterpolar(
+      r = [count_very_offensive*10, count_probably_offensive*10, count_unclear*10, count_benign*10],
+      theta = ['Very Offensive','Probably Offensive','Unclear', 'Benign'],
+      fill = 'toself',
+      name = 'Group A'
+    )
+]
+
+layout = go.Layout(
+  polar = dict(
+    radialaxis = dict(
+      visible = True,
+      range = [0, x*10]
+    )
+  ),
+  showlegend = False
+)
+
+fig = go.Figure(data=data, layout=layout)
+plotly.offline.plot(fig, filename = "multiple.jpg")
