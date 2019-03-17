@@ -57,7 +57,9 @@ def get_videos(channel_name):
             for playlist_item in playlistitems_list_response["items"]:
                 title = playlist_item["snippet"]["title"]
                 video_id = playlist_item["snippet"]["resourceId"]["videoId"]
-                video_list.append((title, video_id))
+                date = playlist_item["snippet"]["publishedAt"][:10]
+                image_link = 'https://img.youtube.com/vi/' + video_id + '/mqdefault.jpg'
+                video_list.append((title, video_id, image_link, date))
 
             playlistitems_list_request = youtube.playlistItems().list_next(
                 playlistitems_list_request, playlistitems_list_response)
